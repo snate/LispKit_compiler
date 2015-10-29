@@ -1,0 +1,105 @@
+1 Prog::=
+    let Bind in Exp end | letrec Bind in Exp end
+FIRST(Prog) = {let, letrec}
+FOLLOW(Prog) = {$} U FOLLOW(Exp)
+
+2 Bind ::=
+    var = Exp X
+FIRST(Bind) = {var}
+FOLLOW(Bind) = {in}
+
+3 X ::=
+    and Bind | epsilon
+FIRST(X) = {and, eps}
+FOLLOW(X) = {in}
+
+4 Exp ::=
+    Prog | lambda(Seq_Var) Exp | ExpA | OPP(Seq_Exp) | if Exp then Exp else Exp
+FIRST(Exp) = {lambda, if} U {let, letrec} U {var, exp_const, ( } U {cons, car,
+                cdr, eq, leq, atom}
+FOLLOW(Exp) = {end, then, else} U {and} U {in} U {lambda, if} U {let, letrec}
+                U {var, exp_const, ( } U {cons, car, cdr, eq, leq, atom} U{ ) }
+
+5 ExpA ::=
+    T E1
+FIRST(ExpA) = {var, exp_const, ( }
+FOLLOW(ExpA) = { ) } U {end, then, else} U {and} U {in} U {lambda, if} U
+  {let, letrec} U {var, exp_const, ( } U {cons, car, cdr, eq, leq, atom} U{ ) }
+
+6 E1 ::=
+    OPA T E1 | epsilon
+FIRST(E1) = {eps} U {+, -}
+FOLLOW(E1) =  { ) } U {end, then, else} U {and} U {in} U {lambda, if} U
+  {let, letrec} U {var, exp_const, ( } U {cons, car, cdr, eq, leq, atom} U{ ) }
+
+7 T ::=
+    F T1
+FIRST(T) = {var, exp_const, ( }
+FOLLOW(T) = {+, -} U  { ) } U {end, then, else} U {and} U {in} U {lambda, if} U
+  {let, letrec} U {var, exp_const, ( } U {cons, car, cdr, eq, leq, atom} U{ ) }
+
+8 T1 ::=
+    OPM F T1 | epsilon
+FIRST(T1) = {eps} U {+, -}
+FOLLOW(T1) = {+, -} U  { ) } U {end, then, else} U {and} U {in} U {lambda, if}
+              U {let, letrec} U {var, exp_const, ( } U {cons, car, cdr, eq,
+                 leq, atom} U{ ) }
+
+9 F ::=
+    var Y | exp_const | (ExpA)
+FIRST(F) = {var, exp_const, ( }
+FOLLOW(F) = FIRST(T1) U FOLLOW(T) = {+, -} U { ) } U {end, then, else} U {and}
+                                    U {in} U {lambda, if} U {let, letrec} U
+                                    {var, exp_const, ( } U {cons, car, cdr, eq,
+                                    leq, atom} U{ ) }
+
+10 Y :: =
+    (Seq_Exp) | epsilon
+FIRST(Y) = {(, eps}
+FOLLOW(Y) = {+, -} U { ) } U {end, then, else} U {and}
+                                    U {in} U {lambda, if} U {let, letrec} U
+                                    {var, exp_const, ( } U {cons, car, cdr, eq,
+                                    leq, atom} U{ ) }
+
+11 OPA ::=
+    + | -
+FIRST(OPA) = {+, -}
+FOLLOW(OPA) = FIRST(T) = {var, exp_const, ( }
+
+12 OPM ::=
+    * | /
+FIRST(OPM) = {*, /}
+FOLLOW(OPM) = FIRST(F) = {var, exp_const, ( }
+
+13 OPP::=
+    cons | car | cdr | eq | leq | atom
+FIRST(OPP) = {cons, car, cdr, eq, leq, atom}
+FOLLOW(OPP) = { ( }
+
+14 Seq_Exp ::=
+    Exp Seq_Exp |epsilon
+FIRST(Seq_Exp) = {eps} U {lambda, if} U {let, letrec} U {var, exp_const, ( } U
+                   {cons, car, cdr, eq, leq, atom}
+FOLLOW(Seq_Exp) = { ) }
+
+15 Seq_Var ::=
+    var Seq_var | epsilon
+FIRST(Seq_Var) = {eps, var}
+FOLLOW(Seq_Var) = { ) }
+
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
+_______________________________________________________________________________
