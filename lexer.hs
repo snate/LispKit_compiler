@@ -130,8 +130,8 @@ s input@(c:l) res
 i :: String -> [Token]
 i "" = error "Unexpected end of string in init"
 i "$" = [(Symbol DOLLAR)]
-i (' ':l) = i l
 i input@(f:l)
+    | isSpace f = i l
     | f == '"' = -- STRINGA
         let (tkn, str) = sc l ""
         in tkn : (i str)
