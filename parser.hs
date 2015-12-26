@@ -200,3 +200,18 @@ seq_var :: [Token] -> Exc [Token]
 seq_var endSeq@((Symbol RPAREN):b) = Return endSeq  -- end of sequence
 seq_var ((Id _):b) = seq_var b  -- look for next element
 seq_var (a:_) = Raise ("ERRORE in seq_var, TROVATO " ++ show(a))
+
+
+-- examples
+
+--right
+c = "letrec  FACT = lambda ( X ) if  eq ( X, 0 ) then 1 else  X*FACT(  X- 1 )and G = lambda ( H L ) if  eq ( L,  nil ) then L else cons( H(car( L ) ), G ( H, cdr ( L ) )) in G ( FACT, cons(1, cons(2, cons(3, nil))) ) end $";
+
+-- right
+d = "let x=cons(\"ab\", cons(\"cd\", nil)) in if true then cons(\"01\", x) else nil end $";
+
+-- right
+myFun2 = "let a = 2 in lambda ( Y Z) a * 3 end $"
+
+-- wrong
+myFun = "let \"a b\" x = (~2) 3 52 $";
