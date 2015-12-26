@@ -93,8 +93,10 @@ exp :: [Token] -> Exc [Token]
 exp a@((Keyword LET):b)    = (funProg a)  -- program => p#1
 exp a@((Keyword LETREC):b) = (funProg a)  -- "recursive" program => p#1
 exp ((Keyword LAMBDA):b)   = do           -- function declaration (p#4.2)
-                                x <- seq_var b  -- decode variables sequence
-                                exp x           -- decode expression
+                                x <- rec_lp b   -- recognize left bracket
+                                y <- seq_var x  -- decode variables sequence
+                                z <- rec_rp y   -- recognize right bracket
+                                exp z           -- decode expression
 exp ((Operator CONS):b)    = do           -- list construction (p#4.3)
                                 x <- rec_lp b    -- recognize left bracket
                                 y <- exp x       -- parse first element
@@ -195,4 +197,6 @@ seq_exp a = Raise[] -- da completare ......................................
 
 -- production #15
 seq_var :: [Token] -> Exc [Token]
-seq_var a = Raise[] -- da completare ......................................
+seq_var endSeq@((Symbol RPAREN):b) = Return endSeq  -- end of sequence
+seq_var ((Id _):b) = seq_var b  -- look for next element
+seq_var (a:_) = Raise ("ERRORE in seq_var, TROVATO " ++ show(a))
