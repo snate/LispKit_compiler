@@ -192,7 +192,10 @@ funY x                        = Return x
 
 -- production #14
 seq_exp :: [Token] -> Exc [Token]
-seq_exp a = Raise[] -- da completare ......................................
+seq_exp endSeq@((Symbol RPAREN):_) = Return endSeq  -- end of sequence
+seq_exp a = do
+         x <- exp a  -- parse first argument
+         nextArgs x  -- parse following arguments
 
 
 -- production #15
@@ -200,6 +203,14 @@ seq_var :: [Token] -> Exc [Token]
 seq_var endSeq@((Symbol RPAREN):b) = Return endSeq  -- end of sequence
 seq_var ((Id _):b) = seq_var b  -- look for next element
 seq_var (a:_) = Raise ("ERRORE in seq_var, TROVATO " ++ show(a))
+
+
+-- production #16
+nextArgs :: [Token] -> Exc [Token]
+nextArgs endSeq@((Symbol RPAREN):_) = Return endSeq  -- end of sequence
+nextArgs a = do
+         x <- rec_virg a  -- verify comma presence
+         seq_exp x        -- parse next sequences
 
 
 -- examples
@@ -212,6 +223,9 @@ d = "let x=cons(\"ab\", cons(\"cd\", nil)) in if true then cons(\"01\", x) else 
 
 -- right
 myFun2 = "let a = 2 in lambda ( Y Z) a * 3 end $"
+
+-- right
+factorial = "let prod = lambda (N) 2 in prod(5) end $"
 
 -- wrong
 myFun = "let \"a b\" x = (~2) 3 52 $";
