@@ -1,5 +1,6 @@
 module Analizzatore_sint_2 (
-  prog
+  prog,
+  LKC (..)
   ) where
 
 import Lexer
@@ -72,8 +73,11 @@ data LKC = ETY | -- eps productions
 --  * the latter is a list of binders (variables and respective values)
 
 
-prog :: [Token] -> Exc ([Token], LKC)
-prog input = funProg input
+prog :: [Token] -> LKC
+prog input =
+    case funProg input of
+      Raise b -> ETY
+      Return (a, b) -> b
 
 
 -- production #1
