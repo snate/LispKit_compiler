@@ -1,6 +1,8 @@
 module Analizzatore_sint_2 (
   prog,
-  LKC (..)
+  LKC (..),
+  Exc (..),
+  Exception
   ) where
 
 import Lexer
@@ -10,7 +12,7 @@ data Exc a = Raise Exception | Return a
 type Exception = String
 
 instance Show a => Show (Exc a) where
-  show (Raise e)  = "ERRORE:" ++ e
+  show (Raise e)  = "ERRORE: " ++ e
   show (Return x) = "COMPILATO " ++ (show x)
 
 instance Monad Exc where
@@ -73,11 +75,11 @@ data LKC = ETY | -- eps productions
 --  * the latter is a list of binders (variables and respective values)
 
 
-prog :: [Token] -> LKC
+prog :: [Token] -> Exc LKC
 prog input =
     case funProg input of
-      Raise b -> ETY
-      Return (a, b) -> b
+      Raise b -> Raise b
+      Return (a, b) -> Return b
 
 
 -- production #1
@@ -145,14 +147,20 @@ exp ((Operator EQ):b)      = do           -- comparing operator
                           after_clos_bracket <- rec_rp after_snd_exp
                           Return (after_clos_bracket, EQC val1 val2)
 exp ((Operator CAR):b)      = do          -- first element of a list
-                          (after_exp, lkcValue) <- exp b
-                          Return (after_exp, CARC lkcValue)
+                          after_op_bracket <- rec_lp b
+                          (after_exp, lkcValue) <- exp after_op_bracket
+                          after_clos_bracket <- rec_rp after_exp
+                          Return (after_clos_bracket, CARC lkcValue)
 exp ((Operator CDR):b)      = do          -- remainder of a list
-                          (after_exp, lkcValue) <- exp b
-                          Return (after_exp, CDRC lkcValue)
+                          after_op_bracket <- rec_lp b
+                          (after_exp, lkcValue) <- exp after_op_bracket
+                          after_clos_bracket <- rec_rp after_exp
+                          Return (after_clos_bracket, CDRC lkcValue)
 exp ((Operator ATOM):b)     = do          -- LISP atom
-                          (after_exp, lkcValue) <- exp b
-                          Return (after_exp, ATOMC lkcValue)
+                          after_op_bracket <- rec_lp b
+                          (after_exp, lkcValue) <- exp after_op_bracket
+                          after_clos_bracket <- rec_rp after_exp
+                          Return (after_clos_bracket, ATOMC lkcValue)
 exp ((Keyword IF):b)        = do          -- if statement (p#4.3)
                           (after_cond, cond) <- exp b
                           after_then <- rec_then after_cond
@@ -209,7 +217,7 @@ isExp_const  _          = False
 
 get_value::Token -> LKC
 get_value (Number n)  = NUM n
-get_value Nil         = ETY
+get_value Nil         = NIL
 get_value (Bool b)    = BOO b
 get_value (String s)  = STRI s
 
@@ -289,3 +297,6 @@ factorial = "let prod = lambda (N) 2 in prod(5) end $"
 
 -- wrong
 myFun = "let \"a b\" x = (~2) 3 52 $";
+
+tpnt19 = "let x= lambda (a) a in x ( car(cons(1, nil)) ) end $";
+asdf = lexi tpnt19
