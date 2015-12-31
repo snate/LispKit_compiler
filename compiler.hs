@@ -1,4 +1,4 @@
---Compilatore LKC --> SECD incompleto Dicembre  2015
+--Compilatore LKC --> SECD
 module Compilatore (
   comp_one,
   Secdexpr(..)
@@ -90,7 +90,11 @@ comp e n c =  case e of
                        -- compile a call to (anonymous) function body b using:
                        -- * vals as actual parameters
                        -- * vars as formal parameters
-    (LETRECC x y) -> [] -- TODO
+    (LETRECC b l) -> let
+                       (vars, vals) = varsAndVals l
+                       letRecBody = (Ldf (comp b (vars:n) [Rtn])):(Rap):c
+                     in
+                       Push:(complist (vals) (vars:n) letRecBody)
     (CALL f l)    -> complist l n (comp f n (Ap:c))
     _ -> [];
 
