@@ -198,7 +198,8 @@ fin x = (interprete [] [] (x ++ [Stop]) [])  -- se x è il programma Secdexpr
 -- Mostra che si puo' usare letrec anche con binders non-funzionali. Le var a
 -- sinistra non devono apparire a destra.
 
---e = "let z=2 in letrec x= 2+z and y= 2*z in x*y*z end end $"
+e = "let z=2 in letrec x= 2+z and y= 2*z in x*y*z end end $"
+--ok
 
 -- distribuisce FACT su una lista di interi *)
 
@@ -214,21 +215,32 @@ fin x = (interprete [] [] (x ++ [Stop]) [])  -- se x è il programma Secdexpr
 -- in Z *)
 
 f = "letrec f0 = lambda ( x ) letrec f1 = lambda(y) letrec f2=lambda (z) if eq(z , 1) then 1 else z * f2( z - 1 ) in if eq( y , nil ) then 0 else f2 ( car ( y ) ) + f1 ( cdr (y)) end in if eq(x , nil) then nil else cons (f1 ( car ( x )),f0 ( cdr ( x ) ) ) end in f0( cons (cons (3 , cons (3 , nil)), cons( cons (3 , nil), nil))) end $"
+-- ok
 
 
 --(* esempio di funzione che restituisce una funzione locale *)
 
 g="let f1 = lambda() letrec f2=lambda (z) if eq(z , 1) then 1 else z * f2( z - 1 ) in f2 end in let x=f1() in x(8) end end $"
+--ok
 
 
 --Tok=lexi(explode S)
 
 --(k1,k2)=PROG(Tok)
 
-a = "let x = let y = 5 in y*2 end in x+3 end $"
-b = lexi a
-c = prog b
-d = comp_one c
-e = fin d
+a = "letrec fact = lambda(n) if eq(n, 1) then 1 else n*fact(n-1) in fact(5) end $"
+j = "let z=2 in letrec x= 3+z in x+z end end $"
+k = "letrec z=2 in let x= 3+z in x+z end end $"
+q = "letrec z=2 in letrec x= 3+z in x+z end end $"
+tpnt18 = "let x = lambda (a b) cons(a, b) in x end $";
+tpnt19 = "let x= lambda (a) a in x ( car(cons(1, nil)) ) end $";
+tpnt20 = "lets x= lambda (a) a in x ( car(cons(1, nil)) ) end $";
+-- ^ (wrong case)
 
+b = lexi tpnt20
+c = prog b
+d = case c of
+    Return parsed_program -> comp_one parsed_program
+    Raise exc -> error ("Raised: " ++ exc)
+h = fin d
 
