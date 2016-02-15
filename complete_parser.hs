@@ -8,6 +8,7 @@ module Analizzatore_sint_2 (
 import Lexer
 import Prelude hiding (EQ,exp)
 
+-- Exc type: can be either something (a) or an exception could be raised
 data Exc a = Raise Exception | Return a
 type Exception = String
 
@@ -15,6 +16,7 @@ instance Show a => Show (Exc a) where
   show (Raise e)  = "ERRORE: " ++ e
   show (Return x) = "COMPILATO " ++ (show x)
 
+-- Exc is a monad, thus it is easier to control the flow of chained operations
 instance Monad Exc where
   return x  = Return x
   (Raise e) >>= q   = Raise e
@@ -52,12 +54,15 @@ rec_lp :: [Token] -> Exc[Token]
 rec_lp ((Symbol LPAREN):b) = Return b
 rec_lp (a:b)               = Raise ("trovato " ++ show(a) ++ ", atteso ELSE")
 
+rec_rp :: [Token] -> Exc[Token]
 rec_rp ((Symbol RPAREN):b) = Return b
 rec_rp (a:b)               = Raise ("trovato " ++ show(a) ++ ", attesa )")
 
+rec_virg :: [Token] -> Exc[Token]
 rec_virg ((Symbol VIRGOLA):b) = Return  b
 rec_virg (a:b)                = Raise ("trovato " ++ show(a) ++ ", attesa ,")
 
+rec_equals :: [Token] -> Exc[Token]
 rec_equals ((Symbol EQUALS):b)= Return b
 rec_equals (a:b)              = Raise ("trovato " ++ show(a) ++ ", atteso =")
 
@@ -75,64 +80,68 @@ data LKC = ETY | -- eps productions
 --  * the latter is a list of binders (variables and respective values)
 
 
+-- function that is exposed in the interface of the module
 prog :: [Token] -> Exc LKC
 prog input =
     case funProg input of
-      Raise b -> Raise b
       Return (a, b) -> Return b
+      Raise b -> Raise b
 
-
--- production #1
+{- For every non-terminal N in grammar:
+   * Add a pattern matching definition if the next token leads to a new
+     distinct LKC production
+   * Add a pattern matching definition if eps is in FIRST(N) and the next
+     token T satisfy two conditions:
+     - T is in FOLLOW(N)
+     - T leads to a new distinct LKC production
+ -}
+-- production set #1 > Non-terminal Prog
 funProg :: [Token] -> Exc ([Token], LKC)
 funProg a = do
-           (after_let, let_key) <- rec_key a               -- let || letrec
-           (after_bind, binders) <- funBind (after_let, [])
-             -- Bind (p#2)
+           (after_let, let_key) <- rec_key a                 -- let || letrec
+           (after_bind, binders) <- funBind (after_let)      -- Bind (p#2)
            after_in <- rec_in after_bind                     -- in (syntax)
            (after_body, body) <- exp after_in                -- Exp (p#4)
            after_end <- rec_end after_body
            Return (after_end, let_key body binders)
 
 
--- production #2
-funBind :: ([Token], [(LKC,LKC)]) -> Exc ([Token], [(LKC,LKC)])
-funBind ((Id a):b, pairs) =  do
+-- production set #2 > Non-terminal Bind
+funBind :: [Token] -> Exc ([Token], [(LKC,LKC)])
+funBind ((Id a):b) =  do
                                 x <- rec_equals b
                                 (after_binder, value) <- exp x
-                                funX (after_binder, (VAR a, value):pairs)
-funBind (a:_, pairs) =  Raise ("BINDER CON "++ show(a) ++
-                                        " A SINISTRA")
+                                (after_X, pairs) <- funX after_binder
+                                Return (after_X, (VAR a, value):pairs)
+funBind (a:_)      =  Raise ("BINDER CON "++ show(a) ++ " A SINISTRA")
 
 
--- production #3
-funX :: ([Token], [(LKC,LKC)]) -> Exc ([Token], [(LKC,LKC)])
-funX (tokens, list) = case tokens of
-  ((Keyword AND):b) -> funBind (b, list)  -- another Bind => p#2
-  a@((Keyword IN):b) -> Return (a, list)  -- last Bind => return
+-- production set #3 > Non-terminal X
+funX :: [Token] -> Exc ([Token], [(LKC,LKC)])
+funX (tokens) = case tokens of
+  ((Keyword AND):b) -> funBind b  -- another Bind => p#2
+  a@((Keyword IN):b) -> Return (a, [])  -- last Bind => return
   otherwise -> Raise ("DOPO BINDERS; TROVATO"++show(head(tokens)))
 
 
--- production #4
+-- production set #4 > Non-terminal Exp
 exp :: [Token] -> Exc ([Token], LKC)
 exp a@((Keyword LET):b)    = funProg a  -- program => p#1
 exp a@((Keyword LETREC):b) = funProg a  -- "recursive" program => p#1
-
--- till here
 exp ((Keyword LAMBDA):b)   = do           -- function declaration (p#4.2)
                           after_op_bracket <- rec_lp b
-                          (after_argList, args) <- seq_var (after_op_bracket,
-                                                     [])
+                          (after_argList, args) <- seq_var (after_op_bracket)
                           after_clos_bracket <- rec_rp after_argList
                           (after_lExp, lValue) <- exp after_clos_bracket
                           Return (after_lExp, LAMBDAC args lValue)
-exp ((Operator CONS):b)    = do           -- list construction (p#4.3)
+exp ((Operator CONS):b)    = do           -- list construction
                           after_op_bracket <- rec_lp b
                           (after_fst_exp, val1) <- exp after_op_bracket
                           after_comma <- rec_virg after_fst_exp
                           (after_snd_exp, val2) <- exp after_comma
                           after_clos_bracket <- rec_rp after_snd_exp
                           Return (after_clos_bracket, CONSC val1 val2)
-exp ((Operator LEQ):b)     = do           -- less or equal operator (p#4.3)
+exp ((Operator LEQ):b)     = do           -- less or equal operator
                           after_op_bracket <- rec_lp b
                           (after_fst_exp, val1) <- exp after_op_bracket
                           after_comma <- rec_virg after_fst_exp
@@ -170,14 +179,14 @@ exp ((Keyword IF):b)        = do          -- if statement (p#4.3)
                           Return (after_fBranch, IFC cond tBranch fBranch)
 exp x                       =  funExpA x
 
--- production #5
+-- production set #5 > Non-terminal ExpA
 funExpA :: [Token] -> Exc ([Token], LKC)
 funExpA a = do
            (after_T, firstTerm) <- funT a  -- T (p#7)
            funE1 (after_T, firstTerm)      -- E1 (p#6)
 
 
--- production #6
+-- production set #6 > Non-terminal E1
 funE1 :: ([Token], LKC) -> Exc ([Token], LKC)
 funE1 ((Symbol PLUS):b, term)    = do  -- summation
                               (after_T, valT) <- funT b
@@ -189,14 +198,14 @@ funE1 (x, term)                  =     -- end of expression
                               Return (x, term)
 
 
--- production #7
+-- production set #7 > Non-terminal T
 funT :: [Token] -> Exc ([Token], LKC)
 funT a = do
            (after_F, firstTerm) <- funF a
            funT1 (after_F, firstTerm)
 
 
--- production #8
+-- production set #8 > Non-terminal T1
 funT1 :: ([Token], LKC) -> Exc ([Token], LKC)
 funT1 ((Symbol TIMES):b, term)    = do  -- multiplication
                               (after_F, valF) <- funF b
@@ -222,7 +231,7 @@ get_value (Bool b)    = BOO b
 get_value (String s)  = STRI s
 
 
--- production #9
+-- production set #9 > Non-terminal F
 funF :: [Token] -> Exc ([Token], LKC)
 funF (a:b)                 =
     if (isExp_const a) then
@@ -231,7 +240,7 @@ funF (a:b)                 =
       fX (a:b)  -- var or exp
 
 
--- production #9 (aux)
+-- production set #9 (aux)
 fX :: [Token] -> Exc ([Token], LKC)
 fX ((Id variable):b)       =
                         funY (b, VAR variable)
@@ -243,42 +252,47 @@ fX (a:_)                   =
                         Raise ("ERRORE in fX, TROVATO" ++ show(a))
 
 
--- production #10
+-- production set #10 > Non-terminal Y
 funY :: ([Token], LKC) -> Exc ([Token], LKC)
 funY ((Symbol LPAREN):b, f)   =  do
-                          (after_argList, argList) <- seq_exp (b, [])
+                          (after_argList, argList) <- seq_exp b
                           after_clos_bracket <- rec_rp after_argList
                           Return (after_clos_bracket, CALL f argList)
 funY (x, v)                   =
                           Return (x, v)
 
 
--- production #14
-seq_exp :: ([Token], [LKC]) -> Exc ([Token], [LKC])
-seq_exp (b@((Symbol RPAREN):_), args) =  -- end of sequence
-                          Return (b, args)
-seq_exp (a, args)                     = do
+-- production set #14 > Non-terminal Seq_Exp
+seq_exp :: [Token] -> Exc ([Token], [LKC])
+seq_exp b@((Symbol RPAREN):_) =  -- end of sequence
+                          Return (b, [])
+seq_exp (a)                   = do
                           (after_exp, expValue) <- exp a
-                          nextArgs (after_exp, expValue:args)
+                          (after_args, args) <- nextArgs (after_exp)
+                          Return (after_args, expValue:args)
 
 
--- production #15
-seq_var :: ([Token], [LKC]) -> Exc ([Token], [LKC])
-seq_var (endSeq@((Symbol RPAREN):b), list) =
-                          Return (endSeq, list)
-seq_var ((Id variable):b, list) =
-                          seq_var (b, ((VAR variable):list))
-seq_var ((a:_), _) =
+-- production set #15 > Non-terminal Seq_Var
+seq_var :: [Token] -> Exc ([Token], [LKC])
+seq_var (endSeq@((Symbol RPAREN):b)) =
+                          Return (endSeq, [])
+seq_var ((Id variable):b) = do
+                          (after_seq, list) <- seq_var b
+                          Return (after_seq, (VAR variable):list)
+seq_var (a:_) =
                           Raise ("ERRORE in seq_var, TROVATO " ++ show(a))
 
 
--- production #16
-nextArgs :: ([Token], [LKC]) -> Exc ([Token], [LKC])
-nextArgs (endSeq@((Symbol RPAREN):_), args) =  -- end of sequence
-                                Return (endSeq, args)
-nextArgs (a, args)                        = do  -- parse next sequences
-                                after_comma <- rec_virg a
-                                seq_exp (after_comma, args)
+-- production set #16 > Non-terminal NextArgs
+nextArgs :: [Token] -> Exc ([Token], [LKC])
+nextArgs endSeq@((Symbol RPAREN):_) =     -- end of sequence
+                                Return (endSeq, [])
+nextArgs tkns@((Symbol VIRGOLA):_)  = do  -- parse next sequences
+                                after_comma <- rec_virg tkns
+                                (after_seq, args) <- seq_exp (after_comma)
+                                Return (after_seq,args)
+nextArgs a                          =
+                      Raise ("ERRORE in nextArgs, TROVATO " ++ show(a))
 
 
 -- examples

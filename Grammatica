@@ -15,7 +15,7 @@ FOLLOW(X) = {in}
 
 4 Exp ::=
     Prog | lambda(Seq_Var) Exp | ExpA | OPP(Seq_Exp) | if Exp then Exp else Exp
-FIRST(Exp) = {lambda, if} U {let, letrec} U {var, exp_const, ( } U {cons, car,
+FIRST(Exp) = {let, letrec} U {lambda, if} U {var, exp_const, ( } U {cons, car,
                 cdr, eq, leq, atom}
 FOLLOW(Exp) = {end, then, else} U {and} U {in} U {lambda, if} U {let, letrec}
                 U {var, exp_const, ( } U {cons, car, cdr, eq, leq, atom} U{ ) }

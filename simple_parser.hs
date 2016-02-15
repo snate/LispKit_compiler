@@ -5,13 +5,15 @@ module Analizzatore_sint_1(
 import Lexer
 import Prelude hiding (EQ,exp)
 
-data Exc a = Raise Exception | Return a
+-- Exc type: can be either something (a) or an exception could be raised
+data Exc a = Return a | Raise Exception
 type Exception = String
 
 instance Show a => Show (Exc a) where
-  show (Raise e)  = "ERRORE:" ++ e
-  show (Return x) = "RAGGIUNTO:" ++ (show x)
+  show (Raise e)  = "ERROR:" ++ e
+  show (Return x) = "REACHED:" ++ (show x)
 
+-- Exc is a monad, thus it is easier to control the flow of chained operations
 instance Monad Exc where
   return x  = Return x
   (Raise e) >>= q   = Raise e
@@ -59,6 +61,7 @@ rec_equals ((Symbol EQUALS):b)= Return b
 rec_equals (a:b)              = Raise ("trovato " ++ show(a) ++ ", atteso =")
 
 
+-- function exposed in the interface of the module
 progdoll :: [Token] -> String
 progdoll x = show (funProg x)
 
@@ -161,7 +164,7 @@ funT1 ((Symbol DIVISION):b)= do  -- division
 funT1 x                    = Return x
 
 
--- exp_const tells if a token is a constant expression
+-- tells if a token is a constant expression
 exp_const::Token ->Bool
 exp_const (Number _)  = True
 exp_const Nil         = True
